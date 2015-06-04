@@ -1,0 +1,46 @@
+# Fill in your name, student ID, and email address in this file.
+# If you are working in a team, fill out the information for both team 
+# members.
+
+# SUBMIT THE LAB ONLY ONCE (from only one partner). This file will be
+# automatically parsed in order to give both team members credit for the
+# lab.
+
+# You need to fill in the EXERCISE sections describing your solutions
+# for Tasks 1, 2, and 3, as well as write the corresponding code.
+# If you did one or more extra credit problems, indicate which one in the
+# appropriate section below (remove the # sign first). If you have any other
+# information you'd like us to know, please add it at the end of the file.
+
+# Partner 1
+Name: Aravind Vadali
+Student ID: 404272660
+Email: aravind.vadali@gmail.com
+
+# Partner 2 (if you're working in a team)
+Name: Jeffrey Jiang
+Student ID: 904255069
+Email: jiangxuanzhi@gmail.com
+
+# EXERCISE 1: What method you used to make your peer download and upload
+#    files in parallel?  (~1-3 sentences)
+	We used fork() to create separate processes for each upload and download task. Upload and download are still done serially, but each individual upload and download is done in parallel with the others now.
+
+# EXERCISE 2A: What conditions did you find and fix that would have
+#    triggered a buffer overrun bug?  (~1-3 sentences each)
+	We found a bug in start_download where if the filename is the downloaded file is longer than a fixed amount, there would be a buffer overrun. This is fixed by changing strcpy to strncpy, and limiting the size of the string to be copied to FILENAMESIZ
+
+# EXERCISE 2B: What other robustness problems did you fix?  (~1-3 sentences
+#    each)
+	We prevented the peers from accessing directories outside the specified file directory by comparing the requested file path and the current directory.
+	We also prevented peers from infinitely sending us data, by checking if the total size written by that peer exceeds a set amount.
+
+# EXERCISE 3: Describe the attacks you implemented for "evil mode".  Why
+#    are they attacks?  (~3-10 sentences each)
+	Upload Attacks: we choose between one of (currently) two different download attacks. The first is to write random characters from /dev/urandom into the filename descriptor. The second is to write from /dev/zero instead. These two attacks are randomly selected between. We can easily add more attacks in the future, if we become more evil later. This can be considered an attack because it would fill up the victim's hard drive with garbage data, and would also use up memory and CPU.
+	Download Attacks: we get a long filename that is not null terminated and we write it several times to the file that the victim is downloading. This can cause buffer overflows and segfaults for them if they haven't sanitized the input and checked it first.
+
+# Extra credit problems
+#Extra credit problem: none
+
+# Add any other information you'd like us to know below this line.
