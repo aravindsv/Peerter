@@ -714,6 +714,11 @@ static void task_upload(task_t *t)
 		goto exit;
 	}
 
+	// TODO more defenses? 
+	// possible: 
+	// check if real path. 
+	// check if file is within working directory. 
+
 	//Evil Mode?? EVIL MODE
 	if (evil_mode) {
 		switch(rand() % 2) { //can randomly choose between several attacks. Makes it easy to add more if we become more evil in the future
