@@ -515,7 +515,10 @@ task_t *start_download(task_t *tracker_task, const char *filename)
 		error("* Tracker error when requiesting MD5 checksum");
 		goto exit;
 	}
-	strncpy(t->checksum, tracker_task->buf, MD5_TEXT_DIGEST_SIZE);
+	else
+	{
+		strncpy(t->checksum, tracker_task->buf, MD5_TEXT_DIGEST_SIZE);
+	}
 
  exit:
 	return t;
@@ -612,21 +615,27 @@ static void task_download(task_t *t, task_t *tracker_task)
 
 		// verifies file integrity
 		// compute and compare downloaded file checksum with tracker checksum. 
-
-		char computed_checksum[MD5_TEXT_DIGEST_SIZE + 1];
-		memset(computed_checksum, '\0', MD5_TEXT_DIGEST_SIZE + 1);
-		int checksum_size = md5_finish_text(t->state, computed_checksum, 1);
-		if (checksum_size == MD5_TEXT_DIGEST_SIZE
-			&& strncmp(t->checksum, computed_checksum, MD5_TEXT_DIGEST_SIZE) == 0)
+		if (t->checksum[0] == '\0')
 		{
-			message("* File verification was successful for %s\n", t->filename);
+			// there is no checksum, we can't verify. 
+			// this is mainly a work around when we don't have a checksum. 
 		}
 		else
 		{
-			error("* File verification failed for '%s'\n", t->filename);
-			goto try_again;
+			char computed_checksum[MD5_TEXT_DIGEST_SIZE + 1];
+			memset(computed_checksum, '\0', MD5_TEXT_DIGEST_SIZE + 1);
+			int checksum_size = md5_finish_text(t->state, computed_checksum, 1);
+			if (checksum_size == MD5_TEXT_DIGEST_SIZE
+				&& strncmp(t->checksum, computed_checksum, MD5_TEXT_DIGEST_SIZE) == 0)
+			{
+				message("* File verification was successful for %s\n", t->filename);
+			}
+			else
+			{
+				error("* File verification failed for '%s'\n", t->filename);
+				goto try_again;
+			}
 		}
-
 
 		// Inform the tracker that we now have the file,
 		// and can serve it to others!  (But ignore tracker errors.)
@@ -883,6 +892,7 @@ int main(int argc, char *argv[])
 	}
 
 	// First, download files named on command line.
+	int count = 0;
 	for (; argc > 1; argc--, argv++)
 		if ((t = start_download(tracker_task, argv[1]))) {
 			pid = fork();
