@@ -41,6 +41,18 @@ Email: jiangxuanzhi@gmail.com
 	Download Attacks: we get a long filename that is not null terminated and we write it several times to the file that the victim is downloading. This can cause buffer overflows and segfaults for them if they haven't sanitized the input and checked it first.
 
 # Extra credit problems
-#Extra credit problem: none
+#Extra credit problem: File Integrity
+
+In terms of file integrity, we have some attempt at file integrity in place. Essentially, we added two new 
+data variables in the task structure. This keeps track of the checksum provided by the peer, and then the 
+checksum that we compute from the file that we downloaded. We use these two values to compare the checksum. 
+If the comparison results in two checksums that are different, we need to reject the download. 
+
+For the purposes of this lab, since other peers do not provide checksums (which we require in order for it to work)
+We use a conditional version of this, which includes a case where if we don't find a checksum, we just ignore
+this checksum condition. Of course this is not a great solution for protection purposes, but this allows us 
+to actually download things for the purpose of this lab. If we want to show the actual intended purposes, 
+have peers provide MD5 Checksum information, which will allow for us to remove the conditional situation, and 
+have everything exactly what we want. 
 
 # Add any other information you'd like us to know below this line.
