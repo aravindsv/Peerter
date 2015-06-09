@@ -25,7 +25,7 @@
 #include "acessSys.h"
 
 int evil_mode;			// nonzero iff this peer should behave badly
-#define checksum_enable 0;
+#define checksum_enable 0
 
 static struct in_addr listen_addr;	// Define listening endpoint
 static int listen_port;
@@ -682,7 +682,7 @@ static task_t *task_listen(task_t *listen_task)
 	message("* Got connection from %s:%d\n",
 		inet_ntoa(peer_addr.sin_addr), ntohs(peer_addr.sin_port));
 
-	if (!peerShouldAccess(inet_ntoa(peer_addr), listen_task->filename))
+	if (!peerShouldAccess(inet_ntoa(peer_addr.sin_addr), listen_task->filename))
 	{
 		// TODO is this the right filename?
 		message("* Our access control list rejects this peer for this file. ");

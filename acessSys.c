@@ -6,7 +6,7 @@
 //										   port numbers
 
 // for printf/file io?
-#include <stdio>
+#include <stdio.h>
 // for symlink stuff: 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,6 +14,7 @@
 // for strtok
 #include <stdlib.h>
 #include <string.h>
+#include "acessSys.h"
 
 //#filename
 //#includeIP
@@ -22,15 +23,21 @@
 //#excludeAlias
 //#includePort
 //#excludePort
+//
+// typedef int bool;
+// enum { false, true };
 
 #define INCLUDE true
 #define EXCLUDE false
 #define FILENAMESIZ 256
 #define PEERLISTSIZ 1024
 
-Rule** rulebook;
+
+
 int rulebook_max_size;
 int rulebook_size;
+
+void parseFile(char *rule_file);
 
 char* rule_file = ".ajaccess";
 
@@ -43,13 +50,15 @@ typedef enum peer_definition {		// Which type of connection is this?
 } peerDef;
 
 typedef struct rule_t {
-	char *filename
+	char *filename;
 	peerDef type;
 	bool include;
 	char *peerList;
 	char **peerArr; // TODO why double pointer? 
-	size_t num_peers;
+	int num_peers;
 } Rule;
+
+Rule** rulebook;
 
 // use this when the p2p program starts, as this creates the rulebook. 
 void init()
@@ -60,7 +69,7 @@ void init()
 	for (int i = rulebook_size; i < rulebook_max_size; i++)
 		rulebook[i] = NULL;
 
-	parsefile(rule_file); // TODO insert the filename of the rule file here. (or make it inputted, idk lol). 
+	parseFile(rule_file); // TODO insert the filename of the rule file here. (or make it inputted, idk lol). 
 }
 
 void rule_free()
@@ -68,7 +77,7 @@ void rule_free()
 	for (int i = 0; i < rulebook_size; i++)
 	{
 		free(rulebook[i]->filename);
-		free(rulebook[i]->peerArray);
+		free(rulebook[i]->peerArr);
 		free(rulebook[i]->peerList);
 		free(rulebook[i]);
 	}
@@ -76,7 +85,7 @@ void rule_free()
 }
 
 //General Idea for code to check if a peer should download or not
-bool peerShouldAccess(Rule myRule, char* peer) {
+bool peerWillAccess(Rule myRule, char* peer) {
 	int i;
 	for (int i = 0; i < myRule.num_peers; i++)
 	{
@@ -100,8 +109,8 @@ bool peerShouldAccess(char* peer, char *file) {
 			// error, this shouldn't be the case. 
 			break;
 		}
-		if (strncmp(rulebook[n].filename, file, FILENAMESIZ) == 0) {
-			return peerShouldAccess(rulebook[n], peer);
+		if (strncmp(rulebook[n]->filename, file, FILENAMESIZ) == 0) {
+			return peerWillAccess(*rulebook[n], peer);
 		}
 	}
 	return true;
@@ -118,12 +127,12 @@ void addRule(char *fname, peerDef ty, bool incl, char* list, char** arr, size_t 
 			rulebook[i] = NULL;
 	}
 	rulebook[rulebook_size] = (Rule*)malloc(sizeof(Rule));
-	rulebook[rulebook_size].filename = fname;
-	rulebook[rulebook_size].type = ty;
-	rulebook[rulebook_size].include = incl;
-	rulebook[rulebook_size].peerList = list;
-	rulebook[rulebook_size].peerArray = arr;
-	rulebook[rulebook_size].num_peers = size;
+	rulebook[rulebook_size]->filename = fname;
+	rulebook[rulebook_size]->type = ty;
+	rulebook[rulebook_size]->include = incl;
+	rulebook[rulebook_size]->peerList = list;
+	rulebook[rulebook_size]->peerArr = arr;
+	rulebook[rulebook_size]->num_peers = size;
 	rulebook_size++;
 }
 
@@ -192,7 +201,7 @@ void parseFile(char *rule_file)
 	char *fname = (char*) malloc(FILENAMESIZ*sizeof(char));
 	peerDef ty = NETWORKADDR;
 	bool incl = false;
-	char* peerList = (char**) malloc(PEERLISTSIZ*sizeof(char));
+	char* peerList = (char*) malloc(PEERLISTSIZ*sizeof(char));
 	char** peerArray = NULL;
 	size_t num_peers = 0;
 
