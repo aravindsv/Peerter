@@ -24,6 +24,7 @@
 #include "osp2p.h"
 
 int evil_mode;			// nonzero iff this peer should behave badly
+#define checksum_enable 0;
 
 static struct in_addr listen_addr;	// Define listening endpoint
 static int listen_port;
@@ -510,7 +511,7 @@ task_t *start_download(task_t *tracker_task, const char *filename)
 	osp2p_writef(tracker_task->peer_fd, "MD5SUM %s\n", t->filename);
 	messagepos = read_tracker_response(tracker_task);
 	message("\nTracker task buffer is %s\n", tracker_task->buf);
-	if (tracker_task->buf[messagepos] != '2')
+	if (!checksum_enable && tracker_task->buf[messagepos] != '2')
 	{
 		error("* Tracker error when requiesting MD5 checksum");
 		goto exit;
@@ -615,7 +616,7 @@ static void task_download(task_t *t, task_t *tracker_task)
 
 		// verifies file integrity
 		// compute and compare downloaded file checksum with tracker checksum. 
-		if (t->checksum[0] == '\0')
+		if (!checksum_enable) //t->checksum[0] == '\0')
 		{
 			// there is no checksum, we can't verify. 
 			// this is mainly a work around when we don't have a checksum. 

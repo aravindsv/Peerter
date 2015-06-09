@@ -54,5 +54,7 @@ this checksum condition. Of course this is not a great solution for protection p
 to actually download things for the purpose of this lab. If we want to show the actual intended purposes, 
 have peers provide MD5 Checksum information, which will allow for us to remove the conditional situation, and 
 have everything exactly what we want. 
+Here, we have a value (checksum_enable) that is defined to be 0. Change checksum_enable to 1 to check the
+extra credit (given we have correct peers). 
 
 # Add any other information you'd like us to know below this line.
