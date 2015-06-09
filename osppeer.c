@@ -511,7 +511,7 @@ task_t *start_download(task_t *tracker_task, const char *filename)
 	osp2p_writef(tracker_task->peer_fd, "MD5SUM %s\n", t->filename);
 	messagepos = read_tracker_response(tracker_task);
 	message("\nTracker task buffer is %s\n", tracker_task->buf);
-	if (!checksum_enable && tracker_task->buf[messagepos] != '2')
+	if (!checksum_enable || tracker_task->buf[messagepos] != '2')
 	{
 		error("* Tracker error when requiesting MD5 checksum");
 		goto exit;

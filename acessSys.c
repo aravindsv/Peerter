@@ -11,14 +11,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+// for strtok
+#include <stdlib.h>
+#include <string.h>
 
-#filename
-#includeIP
-#excludeIP
-#includeAlias
-#excludeAlias
-#includePort
-#excludePort
+//#filename
+//#includeIP
+//#excludeIP
+//#includeAlias
+//#excludeAlias
+//#includePort
+//#excludePort
 
 #define INCLUDE true
 #define EXCLUDE false
@@ -26,6 +29,10 @@
 Rule** rulebook;
 int rulebook_max_size;
 int rulebook_size;
+
+char* rule_file = ".ajaccess";
+
+void parseFile(char* rule_file);
 
 typedef enum peer_definition {		// Which type of connection is this?
 	ALIAS,
@@ -37,7 +44,9 @@ typedef struct rule_t {
 	char *filename
 	peerDef type;
 	bool include;
-	int **peerArr; // TODO why double pointer? 
+	char *peerList;
+	char **peerArr; // TODO why double pointer? 
+	size_t num_peers;
 } Rule;
 
 // use this when the p2p program starts, as this creates the rulebook. 
@@ -49,11 +58,24 @@ void init()
 	for (int i = rulebook_size; i < rulebook_max_size; i++)
 		rulebook[i] = NULL;
 
-	parsefile(""); // TODO insert the filename of the rule file here. (or make it inputted, idk lol). 
+	parsefile(rule_file); // TODO insert the filename of the rule file here. (or make it inputted, idk lol). 
+}
+
+void rule_free()
+{
+	for (int i = 0; i < rulebook_size; i++)
+	{
+		free(rulebook[i]->filename);
+		free(rulebook[i]->peerArray);
+		free(rulebook[i]->peerList);
+		free(rulebook[i]);
+	}
+	free(rulebook);
 }
 
 //General Idea for code to check if a peer should download or not
-bool peerShouldAccess(Rule myRule, int peer) {
+// TODO effects of changing int to char*
+bool peerShouldAccess(Rule myRule, char* peer) {
 	int i;
 	if (myRule.include == INCLUDE) {
 		for (i = 0; i < MAX_PEERS; i++) {
@@ -79,7 +101,7 @@ bool peerShouldAccess(Rule myRule, int peer) {
 	}
 }
 
-bool peerShouldAccess(int peer, char *file) {
+bool peerShouldAccess(char* peer, char *file) {
 	int n = 0;
 	for (n = 0; n < rulebook_size; n++) {
 		if (rulebook[n] == NULL) {
@@ -94,7 +116,7 @@ bool peerShouldAccess(int peer, char *file) {
 }
 
 //General Idea for code to parse access file into rules
-void addRule(char *fname, peerDef ty, bool incl, int** arr)
+void addRule(char *fname, peerDef ty, bool incl, char* list, char** arr, size_t size)
 {
 	if (rulebook_size >= rulebook_max_size)
 	{
@@ -107,7 +129,9 @@ void addRule(char *fname, peerDef ty, bool incl, int** arr)
 	rulebook[rulebook_size].filename = fname;
 	rulebook[rulebook_size].type = ty;
 	rulebook[rulebook_size].include = incl;
+	rulebook[rulebook_size].peerList = list;
 	rulebook[rulebook_size].peerArray = arr;
+	rulebook[rulebook_size].num_peers = size;
 	rulebook_size++;
 }
 
@@ -120,6 +144,52 @@ bool isSymlink(char *filename)
 	return S_ISLNK(buf->st_mode);
 }
 
+size_t split(char* str, const char delim, char** result)
+{
+	size_t num_tokens = 0;
+	
+	int i;
+	for (i = 0; str[i] != '\n' && str[i] != '\0'; i++)
+	{
+		if (delim == str[i])
+		{
+			num_tokens++;
+		}
+	}
+	// allows a trailing , at the end. 
+	//if (str[i-1] != delim)
+	num_tokens++;
+
+	result = (char**)malloc(num_tokens*sizeof(char*));
+	int count = 0;
+
+	result[count] = str;
+	count++;
+	for (i = 0; str[i] != '\n' && str[i] != '\0'; i++)
+	{
+		if (delim == str[i])
+		{
+			str[i] = '\0';
+			result[count] = str + i + 1;
+			count++;
+		}
+	}
+
+	//for (i = 0; i < num_tokens; i++)
+	//{
+	//	char* token = strsep(&str, ',');
+	//	if (token != NULL)
+	//		result[i] = token;
+	//	else
+	//	{
+	//		i--;
+	//		num_tokens--;
+	//	}
+	//}
+
+	return num_tokens;
+}
+
 void parseFile(char *rule_file)
 {
 	FILE *file; 		// file object. 
@@ -127,31 +197,49 @@ void parseFile(char *rule_file)
 	size_t size = 0;	// when line is NULL, this can be any value, and will be changed to line's length. 
 	ssize_t read; 		// return value is (num characters read, if read) or -1 (if EOF or error). 
 
-	char *fname;
-	peerDef ty;
-	bool incl;
-	int** peerArray;
+	const uint32_t FILENAMESIZ = 256;
+	const uint32_t PEERLISTSIZ = 1024;
+
+	char *fname = (char*) malloc(FILENAMESIZ*sizeof(char));
+	peerDef ty = NETWORKADDR;
+	bool incl = false;
+	char* peerList = (char**) malloc(PEERLISTSIZ*sizeof(char));
+	char** peerArray = NULL;
+	size_t num_peers = 0;
 
 	file = fopen(rule_file, "r"); // opens filename with read-only permissions. 
 
 	if (file == NULL)
-		// insert file not found error here. 
+	{
+		printf("file not found. uh oh. :(");
 		return;
+	}
+
 
 	read = getline(&line, &size, file); // stores line (includes null pointer) in line. 
 	// allocates line for us. 
 
+	int i = 0; 
 	while (read != -1)
 	{
-		printf("%s", line); // should print line. for testing purposes. 
 		if (line[0] != '\n') // ignore newlines. 
 		{
-			// if match syntax. 
-				// parse file line. 
-					// get file name.
-			// else
-				// return some cannot read file error.
+			if (strncmp(line, "#file", 5) != 0)
+			{
+				printf("%s is not a recognized rule delimiter\n", line); 
+				break;
+			}
+			i += 5;
+			if (line[i] != ' ' && line[i] != '\t')
+			{
+				printf("%s is not a recognized rule delimiter\n", line);
+				break;
+			}
+			while (line[i] == ' ' || line[i] == '\t')
+				i++;
+			strncpy(fname, line + i, FILENAMESIZ);
 
+			// get next non-empty line. 
 			read = getline(&line, &size, file);
 			printf("%s", line);
 			if (read == -1)
@@ -159,6 +247,7 @@ void parseFile(char *rule_file)
 				// error. (no peers to add to the rule). (file ended before rule is completed. 
 				break; // current solution, just ignore the file. (no rule added for it). 
 			}
+
 			while (line[0] == '\n') // ignore newlines. 
 			{
 				read = getline(&line, &size, file);
@@ -168,7 +257,112 @@ void parseFile(char *rule_file)
 					break;
 				}
 			}
+			if (read == -1)
+			{
+				// error. (no peers to add to the rule). (file ended before rule is completed. 
+				break; // current solution, just ignore the file. (no rule added for it). 
+			}
 
+			i = 0;
+			if (strncmp(line, "#include", 8) == 0)
+			{
+				i += 8;
+				incl = true;
+				if (line[i] == ' ' || line[i] == '\t')
+				{
+					// default to IP address. 
+					peerDef ty = NETWORKADDR;
+				}
+				else if (strncmp(line + i, "IP", 2) == 0)
+				{
+					i += 2;
+					peerDef ty = NETWORKADDR;
+					if (line[i] != ' ' && line[i] != '\t')
+					{
+						printf("%s is not a recognized rule delimiter\n", line);
+						break;
+					}
+				}
+				else if (strncmp(line + i, "Alias", 5) == 0)
+				{
+					i += 5;
+					peerDef ty = ALIAS;
+					if (line[i] != ' ' && line[i] != '\t')
+					{
+						printf("%s is not a recognized rule delimiter\n", line);
+						break;
+					}
+				}
+				else if (strncmp(line + i, "Port", 4) == 0)
+				{
+					i += 4;
+					peerDef ty = PORT;
+					if (line[i] != ' ' && line[i] != '\t')
+					{
+						printf("%s is not a recognized rule delimiter\n", line);
+						break;
+					}
+				}
+				else
+				{
+					printf("%s is not a recognized rule delimiter\n", line);
+					break;
+				}
+			}
+			else if (strncmp(line, "#exclude", 8) == 0)
+			{
+				i += 8;
+				incl = false;
+				if (line[i] == ' ' || line[i] == '\t')
+				{
+					// default to IP address. 
+					peerDef ty = NETWORKADDR;
+				}
+				else if (strncmp(line + i, "IP", 2) == 0)
+				{
+					i += 2;
+					peerDef ty = NETWORKADDR;
+					if (line[i] != ' ' && line[i] != '\t')
+					{
+						printf("%s is not a recognized rule delimiter\n", line);
+						break;
+					}
+				}
+				else if (strncmp(line + i, "Alias", 5) == 0)
+				{
+					i += 5;
+					peerDef ty = ALIAS;
+					if (line[i] != ' ' && line[i] != '\t')
+					{
+						printf("%s is not a recognized rule delimiter\n", line);
+						break;
+					}
+				}
+				else if (strncmp(line + i, "Port", 4) == 0)
+				{
+					i += 4;
+					peerDef ty = PORT;
+					if (line[i] != ' ' && line[i] != '\t')
+					{
+						printf("%s is not a recognized rule delimiter\n", line);
+						break;
+					}
+				}
+				else
+				{
+					printf("%s is not a recognized rule delimiter\n", line);
+					break;
+				}
+			}
+			else
+			{
+				printf("%s is not a recognized rule delimiter\n", line);
+				break;
+			}
+			while (line[i] == ' ' || line[i] == '\t')
+				i++;
+			strncpy(peerList, line + i, PEERLISTSIZ);
+			num_peers = split(peerList, ',', peerArray);
 			// parse peers/include/exclude. (same syntax parsing stuff). 
 				// figure out peerDef. 
 				// set include = INCLUDE or EXCLUDE. 
