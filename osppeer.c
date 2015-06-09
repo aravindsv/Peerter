@@ -22,6 +22,7 @@
 #include <limits.h>
 #include "md5.h"
 #include "osp2p.h"
+#include "acessSys.h"
 
 int evil_mode;			// nonzero iff this peer should behave badly
 #define checksum_enable 0;
@@ -681,6 +682,13 @@ static task_t *task_listen(task_t *listen_task)
 	message("* Got connection from %s:%d\n",
 		inet_ntoa(peer_addr.sin_addr), ntohs(peer_addr.sin_port));
 
+	if (!peerShouldAccess(inet_ntoa(peer_addr), listen_task->filename))
+	{
+		// TODO is this the right filename?
+		message("* Our access control list rejects this peer for this file. ");
+		return NULL;
+	}
+
 	t = task_new(TASK_UPLOAD);
 	t->peer_fd = fd;
 	return t;
@@ -905,6 +913,8 @@ int main(int argc, char *argv[])
 
 	// Then accept connections from other peers and upload files to them!
 	while ((t = task_listen(listen_task))) {
+		if (t == NULL)
+			continue;
 		pid = fork();
 		if (pid == 0) {
 			task_upload(t);

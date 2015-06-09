@@ -25,6 +25,8 @@
 
 #define INCLUDE true
 #define EXCLUDE false
+#define FILENAMESIZ 256
+#define PEERLISTSIZ 1024
 
 Rule** rulebook;
 int rulebook_max_size;
@@ -74,31 +76,21 @@ void rule_free()
 }
 
 //General Idea for code to check if a peer should download or not
-// TODO effects of changing int to char*
 bool peerShouldAccess(Rule myRule, char* peer) {
 	int i;
-	if (myRule.include == INCLUDE) {
-		for (i = 0; i < MAX_PEERS; i++) {
-			if (peerArr[i] == NULL) {
-				break;
-			}
-			else if (peerArr[i] == peer) {
-				return true;
-			}
+	for (int i = 0; i < myRule.num_peers; i++)
+	{
+		if (myRule.peerArr[i] == NULL)
+		{
+			// this shouldn't happen, but since it did, we will just skip this. 
+			continue;
 		}
-		return false;
-	}
-	else if (myRule.include == EXCLUDE) {
-		for (i = 0; i < MAX_PEERS; i++) {
-			if (peerArr[i] == NULL) {
-				break;
-			}
-			else if (peerArr[i] == peer) {
-				return false;
-			}
+		if (strncmp(peer, myRule.peerArr[i], PEERLISTSIZ) == 0)
+		{
+			return myRule.include;
 		}
-		return true;
 	}
+	return !myRule.include;
 }
 
 bool peerShouldAccess(char* peer, char *file) {
@@ -196,9 +188,6 @@ void parseFile(char *rule_file)
 	char *line = NULL;	// eventually contains the line. (delimiter, if found + nullbyte included)
 	size_t size = 0;	// when line is NULL, this can be any value, and will be changed to line's length. 
 	ssize_t read; 		// return value is (num characters read, if read) or -1 (if EOF or error). 
-
-	const uint32_t FILENAMESIZ = 256;
-	const uint32_t PEERLISTSIZ = 1024;
 
 	char *fname = (char*) malloc(FILENAMESIZ*sizeof(char));
 	peerDef ty = NETWORKADDR;
@@ -367,7 +356,7 @@ void parseFile(char *rule_file)
 				// figure out peerDef. 
 				// set include = INCLUDE or EXCLUDE. 
 				// add peers into a peer array. 
-			addRule(fname, ty, incl, peerArray);
+			addRule(fname, ty, incl, peerList, peerArray, num_peers);
 		}
 
 		read = getline(&line, &size, file); // stores line (includes null pointer) in line. 
